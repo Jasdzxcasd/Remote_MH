@@ -3,7 +3,8 @@ import 'db_service.dart';
 
 class DepressionTestScreen extends StatefulWidget {
   final int userId;
-  DepressionTestScreen({required this.userId});
+  final String emotion;
+  DepressionTestScreen({required this.userId,required this.emotion});
 
   @override
   _DepressionTestScreenState createState() => _DepressionTestScreenState();
@@ -249,18 +250,20 @@ class _DepressionTestScreenState extends State<DepressionTestScreen> {
       widget.userId,
       _totalScore,
       severity,
+      widget.emotion,
     );
 
     showDialog(
       context: context,
+      barrierDismissible: false, // Prevents closing by tapping outside
       builder: (ctx) => AlertDialog(
         title: Text('Test Result'),
-        content: Text('Score: $_totalScore\nSeverity: $severity'),
+        content: Text('Score: $_totalScore\nSeverity: $severity\nEmotion: ${widget.emotion}'),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(ctx); // Close the dialog
-              Navigator.pushNamed(context, '/home'); // Navigate to results screen
+              Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false); // Navigate to home and remove previous routes
             },
             child: Text('OK'),
           ),
@@ -268,6 +271,7 @@ class _DepressionTestScreenState extends State<DepressionTestScreen> {
       ),
     );
   }
+
 
   void _nextQuestion() {
     if (_selectedAnswers[_currentQuestionIndex] == -1) {

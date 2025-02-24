@@ -20,8 +20,20 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const HomeScreen(),
         '/profile': (context) => ProfileCreationScreen(),
-        '/test': (context) => DepressionTestScreen(
-            userId: ModalRoute.of(context)!.settings.arguments as int),
+        '/test': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments;
+
+          if (args == null || args is! Map<String, dynamic>) {
+            return const Scaffold(
+              body: Center(child: Text("Invalid arguments provided")),
+            );
+          }
+
+          return DepressionTestScreen(
+            userId: args['userId'] is int ? args['userId'] as int : int.tryParse(args['userId'].toString()) ?? 0,
+            emotion: args['emotion'] is String ? args['emotion'] as String : args['emotion'].toString(),
+          );
+        },
         '/results': (context) => ViewResultsScreen1(),
       },
     );
@@ -81,14 +93,19 @@ class _ViewResultsScreenState extends State<ViewResultsScreen1> {
 
 // Selfie Capture and Navigation to Test Screen
 void startSelfieCapture(BuildContext context, int userId) async {
-  final imagePath = await Navigator.push(
+  final String? detectedEmotion = await Navigator.push(
     context,
     MaterialPageRoute(builder: (context) => CameraScreen(userId: userId)),
   );
 
-  // Proceed to the test screen if the selfie was captured or skipped
-  if (imagePath != null || imagePath == null) {
-    Navigator.pushNamed(context, '/test', arguments: userId);
+  if (detectedEmotion != null) {
+    Navigator.pushNamed(
+      context,
+      '/test',
+      arguments: {
+        'userId': userId,
+        'emotion': detectedEmotion,
+      },
+    );
   }
 }
-

@@ -1,7 +1,8 @@
-import 'dart:io';
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'components/camera_widget.dart';
+import 'components/capture_button.dart';
+import 'components/emotion_detector_controller.dart';
+import 'components/emotion_text.dart';
 import 'depression_test_screen.dart';
 
 class CameraScreen extends StatefulWidget {
@@ -14,47 +15,20 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
-  CameraController? _controller;
-  bool _isCameraInitialized = false;
+  final EmotionDetectorController _controller = EmotionDetectorController();
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
-  }
-
-  Future<void> _initializeCamera() async {
-    final cameras = await availableCameras();
-    final frontCamera = cameras.firstWhere(
-          (camera) => camera.lensDirection == CameraLensDirection.front,
-    );
-
-    _controller = CameraController(frontCamera, ResolutionPreset.high);
-    await _controller!.initialize();
-
-    if (mounted) {
-      setState(() {
-        _isCameraInitialized = true;
-      });
-    }
-  }
-
-  Future<String?> _takeSelfie() async {
-    if (!_controller!.value.isInitialized) {
-      return null;
-    }
-
-    XFile image = await _controller!.takePicture();
-    final directory = await getApplicationDocumentsDirectory();
-    final imagePath = '${directory.path}/${DateTime.now()}.jpg';
-    await image.saveTo(imagePath);
-
-    return imagePath;
+    _controller.loadModel();
+    _controller.initializeCamera().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -62,70 +36,99 @@ class _CameraScreenState extends State<CameraScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Emotion Recognition')),
-      body: Column(
-        children: [
-          const SizedBox(height: 16),
-          Center(
-            child: _isCameraInitialized
-                ? SizedBox(
-              width: MediaQuery.of(context).size.width * 0.8,
-              height: MediaQuery.of(context).size.height * 0.6,
-              child: Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()..scale(-1.0, 1.0),
-                child: CameraPreview(_controller!),
-              ),
-            )
-                : const Center(child: CircularProgressIndicator()),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () async {
-              String? imagePath = await _takeSelfie();
-              if (imagePath != null) {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Selfie Captured'),
-                    content: const Text('Emotion Captured: no detection.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DepressionTestScreen(userId: widget.userId),
-                            ),
-                          );
-                        },
-                        child: const Text('Proceed to Test'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-            },
-            child: const Text('Capture Selfie'),
-          ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DepressionTestScreen(userId: widget.userId),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_controller.cameraController != null &&
+                _controller.cameraController!.value.isInitialized)
+              SizedBox(
+                height: 500,
+                child: CameraWidget(controller: _controller.cameraController!),
+              )
+            else
+              const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
+
+            const SizedBox(height: 12),
+
+            // Row for buttons (Switch Camera & Capture)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () async {
+                    await _controller.switchCamera();
+                    setState(() {}); // Refresh UI after switching camera
+                  },
+                  child: const Icon(Icons.switch_camera),
                 ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
-              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                const SizedBox(width: 10), // Space between buttons
+                CaptureButton(
+                  onCapture: () async {
+                    await _controller.captureAndAnalyzeImage(context);
+                    if (!mounted) return;
+
+                    String detectedEmotion = _controller.output.value;
+
+                    if (detectedEmotion != "No Emotion Detected") {
+                      // Show result only if emotion is detected
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Selfie Captured'),
+                          content: Text('Emotion Detected: $detectedEmotion'),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DepressionTestScreen(
+                                      userId: widget.userId,
+                                      emotion: detectedEmotion,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: const Text('Proceed to Test'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 10), // Space between buttons
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DepressionTestScreen(
+                          userId: widget.userId,
+                          emotion: _controller.output.value,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Take Test'),
+                ),
+              ],
             ),
-            child: const Text('Take Test'),
-          ),
-          const SizedBox(height: 16),
-        ],
+
+            const SizedBox(height: 12),
+
+            // Emotion Text below buttons
+            ValueListenableBuilder<String>(
+              valueListenable: _controller.output,
+              builder: (context, value, child) {
+                return EmotionText(emotion: value);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
