@@ -34,7 +34,6 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     final name = _nameController.text.trim();
     final age = int.tryParse(_ageController.text) ?? 0;
 
-    // Ensure valid name and age inputs
     if (name.isNotEmpty && age > 0) {
       if (_userId != null) {
         // Update existing profile
@@ -47,19 +46,31 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         }
       }
 
-      // Navigate to the test screen, passing user ID as an argument
-      Navigator.pushReplacementNamed(
-        context,
-        '/test',
-        arguments: _userId,
+      // Show a toast/snackbar message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Welcome to RMHA!'),
+          duration: Duration(seconds: 2),
+        ),
       );
+
+      // Delay navigation slightly to let the message show
+      Future.delayed(const Duration(seconds: 2), () {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/home',
+              (route) => false, // Clears the navigation stack
+        );
+      });
     } else {
       // Show error if input is invalid
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid name and age.')),
+        const SnackBar(content: Text('Please enter a valid name and age.')),
       );
     }
   }
+
+
 
   @override
   void dispose() {

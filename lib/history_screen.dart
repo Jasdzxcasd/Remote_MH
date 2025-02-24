@@ -50,6 +50,7 @@ class _ViewResultsScreenState extends State<ViewResultsScreen> {
             subtitle: Text(
               'Score: ${user['score']}\n'
                   'Severity: ${user['severity']}\n'
+                  'Emotion: ${user['emotion_data'] ?? 'Not recorded'}\n' // Added emotion
                   'Date: ${_formatDate(user['date'])}',
             ),
           );
